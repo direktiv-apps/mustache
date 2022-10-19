@@ -1,0 +1,164 @@
+swagger: "2.0"
+info:
+  description: Mustache templating
+  title: mustache
+  version: "1.0"
+  x-direktiv-meta:
+    container: gcr.io/direktiv/functions/mustache
+    maintainer: |-
+      [direktiv.io](https://www.direktiv.io) 
+    issues: https://github.com/direktiv-apps/mustache/issues
+    url: https://github.com/direktiv-apps/mustache  
+    categories:
+    - misc
+    license: |-
+      [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0)
+    long-description: >-
+      This function requires a [Mustache](https://mustache.github.io/) template and data. The function returns the rendered template with the data provided.
+      It runs Mustache version 1.1.1.
+consumes:
+- application/json
+produces:
+- application/json
+schemes:
+- http
+paths:
+  /: 
+    delete:
+      parameters:
+        - name: Direktiv-ActionID
+          in: header
+          type: string
+          description: |
+            On cancel Direktiv sends a DELETE request to
+            the action with id in the header
+      x-direktiv:
+        cancel: echo 'cancel {{ .DirektivActionID }}'
+      responses:
+        200:
+    post:
+      parameters:
+        - name: Direktiv-ActionID
+          in: header
+          type: string
+          default: developmenthttps://mustache.github.io/
+        - name: Direktiv-TempDir
+          in: header
+          type: string
+          default: /tmp
+          description: |
+            direktiv temp dir is the working directory for that request
+            For development it can be set to e.g. '/tmp'
+        - name: body
+          in: body
+          schema:
+            type: object
+            properties:
+              template:
+                type: string
+                description: Mustache template to use
+              data: 
+                additionalProperties: {}
+              files:
+                type: array
+                items:
+                  $ref: '#/definitions/direktivFile'
+                description: File to create before running commands.
+                default: []
+      # direktiv code generation is configured here
+      x-direktiv-function: |-
+        functions:
+        - id: mustache
+          image: gcr.io/direktiv/functions/mustache:1.0
+          type: knative-workflow
+      x-direktiv-examples:
+        # ADD MORE EXAMPLES HERE
+        - title: Direct template 
+          content: |-
+            - id: mustache 
+              type: action
+              action:
+                function: mustache
+                input: 
+                  files:
+                  - name: template.tmpl
+                    data: <h1>{{header}}</h1>
+                  template: template.tmpl
+                  data:
+                    header: This is the header
+        - title: Template from Direktiv variable
+          content: |-
+            - id: mustache 
+              type: action
+              action:
+                function: mustache
+                files:
+                - key: templ.tpl
+                  scope: workflow
+                input: 
+                  template: templ.tpl
+                  data:
+                    header: This is the header
+      x-direktiv:  
+        cmds:
+        - action: exec
+          exec: sh -c 'cat {{ .Data | asFile }} | mustache - {{ .Template }}'
+          print: false
+          silent: false
+        output: |
+          {
+            "mustache": {{ index . 0 | toJson }}
+          }
+      x-direktiv-errors:
+        io.direktiv.command.error: Command execution failed
+        io.direktiv.output.error: Template error for output generation of the service
+        io.direktiv.ri.error: Can not create information object from request
+      responses:
+        200:
+          description: List of executed commands.
+          examples:
+            mustache:
+            - result: <h1>THIS IS THE HEADER</h1>
+              success: true
+            - result:  My Template Output
+              success: true
+          schema:
+            type: object
+            properties:
+              mustache:
+                type: object
+                required:
+                - success
+                - result
+                properties:
+                  success:
+                    type: boolean
+                  result:
+                    type: string
+                    description: Template output
+        default:
+          description: generic error response
+          headers:
+            Direktiv-ErrorCode:
+              type: string
+            Direktiv-ErrorMessage:
+              type: string
+          schema:
+            $ref: "#/definitions/error"
+definitions:
+  direktivFile:
+    type: object
+    x-go-type:
+      type: DirektivFile
+      import:
+        package: github.com/direktiv/apps/go/pkg/apps 
+  error:
+    type: object
+    required:
+      - errorCode
+      - errorMessage
+    properties:
+      errorCode:
+        type: string
+      errorMessage:
+        type: string

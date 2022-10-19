@@ -1,0 +1,29 @@
+url: ""
+functions:
+- type: knative-workflow
+  id: mustache
+  image: gcr.io/direktiv/functions/mustache:test
+states:
+- id: state0
+  type: action
+  action:
+    function: mustache
+    input:
+      data:
+        header: This is the header
+      files:
+      - data: <h1>{{header}}</h1>
+        name: template.tmpl
+      template: template.tmpl
+  transition: state1
+- id: state1
+  type: action
+  action:
+    function: mustache
+    input:
+      data:
+        header: This is the header
+      template: templ.tpl
+    files:
+    - key: templ.tpl
+      scope: workflow
