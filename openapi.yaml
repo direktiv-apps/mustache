@@ -1,0 +1,139 @@
+openapi: 3.0.1
+info:
+  title: mustache
+  description: Mustache templating
+  version: "1.0"
+  x-direktiv-meta:
+    container: gcr.io/direktiv/functions/mustache
+    maintainer: "[direktiv.io](https://www.direktiv.io) "
+    issues: https://github.com/direktiv-apps/mustache/issues
+    url: https://github.com/direktiv-apps/mustache
+    categories:
+    - misc
+    license: "[Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0)"
+    long-description: "This function requires a [Mustache](https://mustache.github.io/)\
+      \ template and data. The function returns the rendered template with the data\
+      \ provided. It runs Mustache version 1.1.1."
+servers:
+- url: /
+paths:
+  /:
+    post:
+      parameters:
+      - name: Direktiv-ActionID
+        in: header
+        schema:
+          type: string
+          default: developmenthttps://mustache.github.io/
+      - name: Direktiv-TempDir
+        in: header
+        description: |
+          direktiv temp dir is the working directory for that request
+          For development it can be set to e.g. '/tmp'
+        schema:
+          type: string
+          default: /tmp
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                template:
+                  type: string
+                  description: Mustache template to use
+                data:
+                  type: object
+                files:
+                  type: array
+                  description: File to create before running commands.
+                  items:
+                    $ref: '#/components/schemas/direktivFile'
+        required: false
+      responses:
+        "200":
+          description: List of executed commands.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mustache:
+                    required:
+                    - result
+                    - success
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                      result:
+                        type: string
+                        description: Template output
+            mustache:
+              example:
+              - result: <h1>THIS IS THE HEADER</h1>
+                success: true
+              - result: My Template Output
+                success: true
+        default:
+          description: generic error response
+          headers:
+            Direktiv-ErrorMessage:
+              schema:
+                type: string
+            Direktiv-ErrorCode:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error'
+      x-direktiv-function: |-
+        functions:
+        - id: mustache
+          image: gcr.io/direktiv/functions/mustache:1.0
+          type: knative-workflow
+      x-direktiv-examples:
+      - title: Direct template
+        content: "- id: mustache \n  type: action\n  action:\n    function: mustache\n\
+          \    input: \n      files:\n      - name: template.tmpl\n        data: <h1>{{header}}</h1>\n\
+          \      template: template.tmpl\n      data:\n        header: This is the\
+          \ header"
+      - title: Template from Direktiv variable
+        content: "- id: mustache \n  type: action\n  action:\n    function: mustache\n\
+          \    files:\n    - key: templ.tpl\n      scope: workflow\n    input: \n\
+          \      template: templ.tpl\n      data:\n        header: This is the header"
+      x-direktiv:
+        cmds:
+        - action: exec
+          exec: "sh -c 'cat {{ .Data | asFile }} | mustache - {{ .Template }}'"
+          print: false
+          silent: false
+        output: |
+          {
+            "mustache": {{ index . 0 | toJson }}
+          }
+      x-direktiv-errors:
+        io.direktiv.command.error: Command execution failed
+        io.direktiv.output.error: Template error for output generation of the service
+        io.direktiv.ri.error: Can not create information object from request
+      x-codegen-request-body-name: body
+components:
+  schemas:
+    direktivFile:
+      type: object
+      x-go-type:
+        type: DirektivFile
+        import:
+          package: github.com/direktiv/apps/go/pkg/apps
+    error:
+      required:
+      - errorCode
+      - errorMessage
+      type: object
+      properties:
+        errorCode:
+          type: string
+        errorMessage:
+          type: string
+
